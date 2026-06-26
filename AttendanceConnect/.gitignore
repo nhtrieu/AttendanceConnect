@@ -1,0 +1,32 @@
+# Logs
+logs/
+*.log
+
+# Build results
+bin/
+obj/
+*.dll
+*.exe
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.sln.docstates
+
+# Dependencies
+packages/
+.nuget/
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application
+last_sync.txt
+appsettings.local.json
