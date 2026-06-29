@@ -20,9 +20,22 @@ namespace AttendanceConnect.Utilities
             }
         }
 
-        private string GetLogFile()
+        /// <summary>Monday of the week containing the given date.</summary>
+        public static DateTime GetWeekStart(DateTime date)
         {
-            return _logPath.Replace("{Date}", DateTime.Now.ToString("yyyy-MM-dd"));
+            var diff = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            return date.Date.AddDays(-diff);
+        }
+
+        public string GetCurrentLogFilePath()
+        {
+            return GetLogFilePathForDate(DateTime.Now);
+        }
+
+        /// <summary>Log file for the Monday-Sunday week containing the given date (one file per week).</summary>
+        public string GetLogFilePathForDate(DateTime date)
+        {
+            return _logPath.Replace("{Date}", GetWeekStart(date).ToString("yyyy-MM-dd"));
         }
 
         public void Information(string message)
@@ -47,7 +60,7 @@ namespace AttendanceConnect.Utilities
             {
                 try
                 {
-                    var logFile = GetLogFile();
+                    var logFile = GetCurrentLogFilePath();
                     var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                     var line = $"{timestamp} [{level}] {message}";
 

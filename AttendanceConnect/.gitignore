@@ -5,8 +5,15 @@ logs/
 # Build results
 bin/
 obj/
+publish/
+dist/
 *.dll
 *.exe
+
+# Keep the pre-generated COM interop assembly - required to build, can't be regenerated without
+# the ZKTeco SDK (zkemkeeper.dll) registered on the build machine.
+!libs/*.dll
+
 
 # Visual Studio
 .vs/
@@ -29,4 +36,3 @@ Thumbs.db
 
 # Application
 last_sync.txt
-appsettings.local.json

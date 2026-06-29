@@ -1,6 +1,6 @@
 using AttendanceConnect.Models;
 using AttendanceConnect.Utilities;
-using Microsoft.Data.SqlClient;
+using System.Data.SqlClient;
 
 namespace AttendanceConnect.Services
 {
@@ -27,12 +27,9 @@ namespace AttendanceConnect.Services
 
             try
             {
-                _logger.Information($"Inserting {logs.Count} attendance logs to database");
-
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
-                    _logger.Information("Successfully connected to SQL Server database");
 
                     foreach (var log in logs)
                     {
@@ -49,10 +46,8 @@ namespace AttendanceConnect.Services
                         }
                     }
 
-                    await connection.CloseAsync();
+                    connection.Close();
                 }
-
-                _logger.Information($"Successfully inserted {insertedCount}/{logs.Count} attendance logs");
             }
             catch (SqlException ex)
             {
@@ -89,6 +84,68 @@ namespace AttendanceConnect.Services
                 int result = await command.ExecuteNonQueryAsync();
                 return result > 0;
             }
+        }
+
+        public async Task<DateTime?> GetLastVerifyDateAsync()
+        {
+            const string query = "SELECT TOP 1 VerifyDate FROM [dbo].[tblHR_AttendanceLogs] ORDER BY VerifyDate DESC";
+
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                using var command = new SqlCommand(query, connection);
+                var result = await command.ExecuteScalarAsync();
+
+                return result is DateTime verifyDate ? verifyDate : null;
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("Database connection error while reading last VerifyDate", ex);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while reading last VerifyDate", ex);
+                throw;
+            }
+        }
+
+        public async Task<Dictionary<string, string>> GetStaffNamesAsync()
+        {
+            const string query = "SELECT AttendanceUserID, FullName FROM vwAL_StaffAttendance";
+            var staffNames = new Dictionary<string, string>();
+
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                using var command = new SqlCommand(query, connection);
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    var userId = reader["AttendanceUserID"]?.ToString();
+                    if (string.IsNullOrEmpty(userId))
+                        continue;
+
+                    staffNames[userId] = reader["FullName"]?.ToString() ?? "";
+                }
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("Database connection error while reading staff names", ex);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while reading staff names", ex);
+                throw;
+            }
+
+            return staffNames;
         }
 
         public bool TestConnection()

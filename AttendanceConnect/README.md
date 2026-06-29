@@ -1,64 +1,61 @@
 # AttendanceConnect - ZKTeco Attendance Sync Service
 
-Desktop Windows application để đồng bộ log chấm công từ máy chấm công ZKTeco vào SQL Server database.
+Desktop Windows application (WinForms, .NET Framework 4.8) để đồng bộ log chấm công từ máy chấm công ZKTeco vào SQL Server database.
 
 ## Tính năng
 
-✅ **System Tray UI**: Chạy ở background với icon ở system tray  
-✅ **Tự động Sync**: Chạy tự động mỗi 2 giờ từ 8:30 - 20:00  
-✅ **Execute Now**: Menu để chạy sync ngay lập tức  
-✅ **Logging**: Log tất cả hoạt động (thành công/lỗi) vào file  
-✅ **Error Detection**: Icon thay đổi thành đỏ khi có lỗi kết nối  
-✅ **Lightweight**: Xây dựng với .NET Core 8, không cần dependencies phức tạp
+✅ **System Tray UI**: Chạy ở background với icon ở system tray, double-click để mở giao diện chính
+✅ **Tab "Chấm công"**: Đọc dữ liệu mới từ máy chấm công, xem trước trên lưới, cập nhật lên database; đồng bộ giờ máy tính ↔ máy chấm công
+✅ **Tab "Xem logs"**: Xem log theo tuần (Thứ 2 - Chủ nhật), điều hướng tuần trước/sau
+✅ **Tab "Cài đặt"**: Sửa toàn bộ cấu hình (DB, máy chấm công, giờ sync) ngay trong app, yêu cầu mật khẩu quản trị
+✅ **Tự động Sync**: Chạy tự động theo lịch (mặc định mỗi 2 giờ, 8:30 - 20:00), chỉ lấy log mới hơn lần sync gần nhất
+✅ **Execute Now**: Menu chuột phải tray icon để chạy sync ngay lập tức
+✅ **Logging**: Log theo tuần, chỉ ghi các bước thành công chính + lỗi (không log rác)
+✅ **Lightweight**: Không phụ thuộc nhiều thư viện ngoài
 
 ## Yêu cầu
 
-- Windows 10 / Windows Server 2019 trở lên
-- .NET 8.0 Runtime hoặc SDK
-- SQL Server (cơ sở dữ liệu tblHR_AttendanceLogs đã tồn tại)
-- Máy chấm công ZKTeco với API accessible qua HTTP
+- Windows (7 SP1 / 8.1 / 10 / 11 / Server tương ứng) có .NET Framework 4.8
+- SQL Server (bảng `tblHR_AttendanceLogs` và view `vwAL_StaffAttendance` đã tồn tại)
+- Máy chấm công ZKTeco + SDK `zkemkeeper.dll` đã đăng ký trên máy chạy app (xem mục Troubleshooting)
 
 ## Cấu hình
 
-### 1. Chỉnh sửa `appsettings.json`
+Cấu hình lưu trong **`AttendanceConnect.exe.config`** (sinh ra từ `App.config` lúc build), phần `<appSettings>`:
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=YOUR_SERVER;Database=YOUR_DATABASE;User Id=YOUR_USER;Password=YOUR_PASSWORD;"
-  },
-  "ZKTeco": {
-    "IP": "192.168.1.100",
-    "Port": 8000,
-    "Key": "Your_Device_Key_Here"
-  },
-  "Sync": {
-    "DeviceCode": "DEVICE_001",
-    "IntervalHours": 2,
-    "StartTime": "08:30",
-    "EndTime": "20:00"
-  },
-  "Logging": {
-    "LogPath": "./logs/attendance-{Date}.log",
-    "LogLevel": "Information"
-  }
-}
+```xml
+<appSettings>
+  <add key="Database.Server" value="YOUR_SERVER" />
+  <add key="Database.DbName" value="YOUR_DATABASE" />
+  <add key="Database.UserId" value="YOUR_USER" />
+  <add key="Database.Password" value="BASE64_ENCODED_PASSWORD" />
+
+  <add key="ZKTeco.IP" value="192.168.1.100" />
+  <add key="ZKTeco.Port" value="8000" />
+  <add key="ZKTeco.Key" value="Your_Device_Key_Here" />
+
+  <add key="Sync.DeviceCode" value="DEVICE_001" />
+  <add key="Sync.IntervalHours" value="2" />
+  <add key="Sync.StartTime" value="08:30" />
+  <add key="Sync.EndTime" value="20:00" />
+
+  <add key="Logging.LogPath" value="./logs/attendance-{Date}.log" />
+  <add key="Logging.LogLevel" value="Information" />
+</appSettings>
 ```
 
 **Cấu hình chi tiết:**
-- `DefaultConnection`: Connection string tới SQL Server
-- `IP`: Địa chỉ IP của máy chấm công ZKTeco
-- `Port`: Port API của máy chấm công (mặc định 8000)
-- `Key`: Device key / password để kết nối ZKTeco
-- `DeviceCode`: Mã máy chấm công (ghi vào database)
-- `IntervalHours`: Khoảng thời gian sync (giờ)
-- `StartTime`: Thời gian bắt đầu sync hàng ngày
-- `EndTime`: Thời gian kết thúc sync hàng ngày
-- `LogPath`: Đường dẫn file log (hỗ trợ rolling daily)
+- `Database.Server/DbName/UserId/Password`: Thông tin kết nối SQL Server. `Password` lưu dạng **Base64** (chỉ để tránh hiển thị lộ liễu, không phải mã hóa bảo mật thật — IT có thể decode ngược bằng `base64 -d` hoặc `Convert.FromBase64String`).
+- `ZKTeco.IP/Port/Key`: Địa chỉ, port, comm key của máy chấm công.
+- `Sync.DeviceCode`: Mã máy chấm công (ghi vào database).
+- `Sync.IntervalHours/StartTime/EndTime`: Khoảng và giờ hoạt động sync tự động.
+- `Logging.LogPath`: Đường dẫn file log (1 file/tuần, Thứ 2 - Chủ nhật, `{Date}` là ngày Thứ 2 đầu tuần).
 
-### 2. Database Schema
+**Sửa qua UI**: mở app → double-click tray icon → tab **"Cài đặt"** → nhập mật khẩu quản trị (`Admin@123`, đổi trong `Form1.cs` nếu cần) → sửa → Lưu. Áp dụng ngay, không cần khởi động lại app.
 
-Ứng dụng sẽ insert vào bảng `tblHR_AttendanceLogs`:
+### Database Schema
+
+Ứng dụng insert vào bảng `tblHR_AttendanceLogs`:
 
 ```sql
 CREATE TABLE [dbo].[tblHR_AttendanceLogs](
@@ -73,105 +70,119 @@ CREATE TABLE [dbo].[tblHR_AttendanceLogs](
 )
 ```
 
+Và đọc tên nhân viên từ view `vwAL_StaffAttendance` (cột `AttendanceUserID`, `FullName`) để hiển thị trên lưới tab "Chấm công".
+
 ## Build & Run
 
 ### Build Release
 
 ```bash
-dotnet publish -c Release -o ./publish
+dotnet build -c Release
 ```
 
-### Chạy ứng dụng
+Output nằm trong `bin/Release/net48/`.
+
+### Chạy ứng dụng (dev)
 
 ```bash
 dotnet run
 ```
 
-hoặc sau khi publish:
+hoặc sau khi build:
 
 ```bash
-./publish/AttendanceConnect.exe
+./bin/Release/net48/AttendanceConnect.exe
 ```
+
+### Đóng gói bản setup
+
+```powershell
+.\Setup\Build-Package.ps1
+```
+
+Tạo `dist/AttendanceConnect-Setup.zip` gồm app + `Setup/Install.ps1` + `Setup/Uninstall.ps1`. Xem [Setup/Install.ps1](Setup/Install.ps1) để biết các bước cài (check .NET 4.8, check `zkemkeeper.dll`, copy file, tạo shortcut, auto-start).
 
 ## Cách sử dụng
 
-1. **Khởi động ứng dụng**: Ứng dụng sẽ chạy ở background, icon hiển thị ở system tray
-2. **Nhấp phải chuột trên icon** để xem menu:
-   - **Execute Now**: Chạy sync ngay lập tức
-   - **Exit**: Thoát ứng dụng
-3. **Nhấp đôi trên icon** để xem trạng thái:
-   - Interval sync hiện tại
-   - Thời gian hoạt động
-   - Trạng thái (Running/Error)
-   - Lần sync cuối cùng
+1. **Khởi động ứng dụng**: chạy ở background, icon hiển thị ở system tray.
+2. **Nhấp phải chuột trên icon**:
+   - **Execute Now**: chạy sync ngay (đọc + insert DB).
+   - **Exit**: thoát ứng dụng.
+3. **Nhấp đôi vào icon**: mở form chính với 3 tab (Chấm công / Xem logs / Cài đặt).
 
-### Icon Trạng thái
+### Icon trạng thái
 
-- 🟢 **Green Circle**: Ứng dụng chạy bình thường
-- 🔴 **Red Circle + !**: Lỗi kết nối (ZKTeco hoặc Database)
+- 🟢 Icon thường: ứng dụng chạy bình thường.
+- 🔴 Icon đỏ: lỗi kết nối (ZKTeco hoặc Database) ở lần sync gần nhất.
 
 ## Log Files
 
-Log được lưu tại: `./logs/attendance-{Date}.log`
+Lưu tại đường dẫn `Logging.LogPath` (mặc định `./logs/attendance-{Date}.log`), **1 file/tuần** (Thứ 2 - Chủ nhật). Xem trực tiếp trong app (tab "Xem logs", có nút lùi/tới giữa các tuần) hoặc mở file text thường.
 
-Mỗi ngày tạo file log mới. Format:
+Log chỉ ghi các bước chính + lỗi, ví dụ một lần sync thành công:
 ```
-2026-06-26 10:30:45.123 +07:00 [INF] Starting attendance sync...
-2026-06-26 10:30:46.456 +07:00 [INF] Successfully fetched 15 attendance logs from ZKTeco
-2026-06-26 10:30:47.789 +07:00 [INF] Successfully inserted 15/15 attendance logs
+2026-06-29 10:30:45.123 [INF] Kết nối đến máy chấm công thành công lúc 10:30:45 29/06/2026
+2026-06-29 10:30:47.456 [INF] Đọc dữ liệu từ 2026-06-26 17:08:33: 161 dòng + insert DB thành công: 161 dòng
 ```
 
 ## Troubleshooting
 
-### Lỗi: "DefaultConnection not found in appsettings.json"
-- Kiểm tra file `appsettings.json` có tồn tại và có section `ConnectionStrings` không
+### Lỗi: "Error loading configuration" / "Error initializing services"
+- Kiểm tra `AttendanceConnect.exe.config` có tồn tại cạnh file exe và đúng cấu trúc `<appSettings>` không.
 
 ### Lỗi: "Failed to connect to ZKTeco device"
-- Kiểm tra IP, Port, Key của máy chấm công trong `appsettings.json`
-- Kiểm tra firewall cho phép kết nối tới port ZKTeco
-- Kiểm tra API của ZKTeco có accessible không (endpoint `/api/logs` hoặc `/api/health`)
+- Kiểm tra IP, Port, Key trong tab "Cài đặt" (hoặc `AttendanceConnect.exe.config`).
+- Kiểm tra `zkemkeeper.dll` đã đăng ký trên máy chưa: `Test-Path "HKLM:\SOFTWARE\Classes\zkemkeeper.ZKEM.1"` phải trả `True`. Nếu chưa, copy `zkemkeeper.dll` (đúng bitness 32/64-bit theo Windows) vào `System32` và chạy `regsvr32 zkemkeeper.dll` (Admin).
+- Kiểm tra firewall cho phép kết nối tới port máy chấm công (mặc định 4370).
 
 ### Lỗi: "Database connection failed"
-- Kiểm tra connection string SQL Server
-- Kiểm tra server có accessible không
-- Kiểm tra user/password có đúng không
-- Kiểm tra database và bảng `tblHR_AttendanceLogs` có tồn tại không
+- Kiểm tra Server/DbName/UserId/Password trong tab "Cài đặt".
+- Kiểm tra SQL login có quyền truy cập đúng database (`db_datareader`/`db_datawriter`).
+- Kiểm tra bảng `tblHR_AttendanceLogs` và view `vwAL_StaffAttendance` đã tồn tại.
 
 ### Không có log được insert
-- Kiểm tra file log để xem chi tiết lỗi
-- Nếu sync chạy nhưng không có log, có thể ZKTeco không có log mới
+- Mở tab "Xem logs" kiểm tra chi tiết lỗi.
+- Nếu sync chạy nhưng không có log, có thể máy chấm công không có log mới trong khoảng thời gian tính từ lần sync trước.
 
 ## Architecture
 
 ```
 AttendanceConnect/
+├── App.config                     # Config gốc (compile ra AttendanceConnect.exe.config)
 ├── Models/
-│   └── AttendanceLog.cs          # Data model
+│   ├── AttendanceLog.cs           # Data model log chấm công
+│   ├── Employee.cs                # Data model nhân viên (ika_* port)
+│   └── AppSettings.cs             # Model cấu hình mạnh kiểu
 ├── Services/
-│   ├── ZKTecoService.cs          # Kết nối & fetch log từ ZKTeco
-│   └── DatabaseService.cs        # Insert vào SQL Server
+│   ├── ZKTecoHelper.cs            # Thư viện helper SDK ZKTeco (port từ ika_* legacy) - dùng cho phát triển sau
+│   └── DatabaseService.cs         # Đọc/ghi SQL Server
 ├── Utilities/
-│   ├── LoggerSetup.cs            # Cấu hình Serilog
-│   └── IconGenerator.cs          # Tạo icon cho system tray
-├── Form1.cs                       # Main form với system tray
-├── Program.cs                     # Entry point
-└── appsettings.json               # Configuration file
+│   ├── AppSettingsService.cs      # Đọc/ghi AttendanceConnect.exe.config
+│   ├── SimpleLogger.cs            # Logger tự viết, rotate theo tuần
+│   └── IconGenerator.cs           # Tạo icon cho system tray
+├── Setup/
+│   ├── Build-Package.ps1          # Build Release + đóng gói zip
+│   ├── Install.ps1                # Cài đặt trên máy đích
+│   └── Uninstall.ps1              # Gỡ cài đặt
+├── libs/
+│   └── Interop.ZKEMKEEPERLib.dll  # COM interop assembly (sinh từ tlbimp, cần track trong git)
+├── Form1.cs                       # Main form: tray icon + 3 tab
+└── Program.cs                     # Entry point
 ```
 
 ## Dependencies
 
-- **Microsoft.Data.SqlClient**: SQL Server data provider
-- **Serilog**: Logging framework
-- **Serilog.Sinks.File**: File sink cho Serilog
-- **Microsoft.Extensions.Configuration.Json**: Configuration từ JSON
+- **System.Data.SqlClient**: SQL Server data provider
+- **System.Configuration** (Framework assembly): đọc/ghi `AttendanceConnect.exe.config`
+- **Interop.ZKEMKEEPERLib**: COM interop với SDK ZKTeco (`zkemkeeper.dll`, cần đăng ký trên máy chạy)
 
 ## Notes
 
-- Ứng dụng chỉ sync trong khoảng thời gian được cấu hình (mặc định 8:30 - 20:00)
-- Nếu kết nối đứt, icon sẽ chuyển sang đỏ nhưng ứng dụng vẫn chạy
-- Log không bị xóa sau khi import, chỉ được đọc
-- Nếu UserID không tồn tại trong hệ thống, vẫn được import (đây là log thô)
-- File `last_sync.txt` được tạo để track lần sync cuối cùng
+- Sync tự động chỉ chạy trong khoảng giờ cấu hình (mặc định 8:30 - 20:00), và chỉ đọc log mới hơn `VerifyDate` lớn nhất đã có trong DB.
+- Nếu kết nối đứt, icon tray chuyển sang đỏ nhưng ứng dụng vẫn chạy.
+- Log không bị xóa trên máy chấm công sau khi đọc.
+- Nếu UserID không khớp nhân viên trong `vwAL_StaffAttendance`, log vẫn được đọc/insert (cột Nhân viên hiển thị rỗng).
+- File `last_sync.txt` track thời điểm sync/cập nhật DB gần nhất.
 
 ## License
 
